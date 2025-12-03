@@ -1,6 +1,26 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { getSession, signOut } from '../lib/supabase';
 
 export default function Header() {
+  const [user, setUser] = useState(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const session = await getSession();
+        setUser(session?.user || null);
+      } catch {}
+    })();
+  }, []);
+
+  const displayName = user?.user_metadata?.name || user?.user_metadata?.username || (user?.email ? user.email.split('@')[0] : null);
+
+  const onLogout = async () => {
+    try { await signOut(); window.location.href = '/'; } catch {}
+  };
+
   return (
     <header className="header" data-name="header">
       <div className="logo">
@@ -19,8 +39,26 @@ export default function Header() {
         <Link className="nav-link" to="/vendor">Vendor</Link>
       </nav>
       <div className="auth">
-        <Link to="/signup" className="btn ghost">Sign Up</Link>
-        <Link to="/login" className="btn primary">Log In</Link>
+        {!user ? (
+          <>
+            <Link to="/signup" className="btn ghost">Sign Up</Link>
+            <Link to="/login" className="btn primary">Log In</Link>
+          </>
+        ) : (
+          <div className="user" style={{ position: 'relative' }}>
+            <button className="btn ghost" onClick={() => setOpen(v=>!v)} aria-haspopup="menu" aria-expanded={open}>
+              {displayName || 'Account'}
+            </button>
+            {open && (
+              <div className="user-menu" role="menu" style={{ position:'absolute', right:0, top:'calc(100% + 8px)', background:'#fff', border:'1px solid #eee', borderRadius:10, boxShadow:'0 6px 18px rgba(0,0,0,.15)', padding:8, minWidth:160 }}>
+                <div style={{ padding:'6px 10px', color:'var(--text-dark)', fontWeight:600 }} role="menuitem">{displayName || user.email}</div>
+                <Link to="/gallery" className="nav-link" role="menuitem" style={{ display:'block', padding:'6px 10px' }}>My Gallery</Link>
+                <Link to="/event" className="nav-link" role="menuitem" style={{ display:'block', padding:'6px 10px' }}>My Events</Link>
+                <button onClick={onLogout} className="btn" role="menuitem" style={{ width:'100%', marginTop:6 }}>Log Out</button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getSession } from '../lib/supabase';
+import { uploadRender, getSignedUrl } from '../lib/storage';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getLayoutById, layouts } from '../data/layouts.js';
 import '../instagram.css';
@@ -338,6 +340,50 @@ export default function Editor() {
     }
   };
 
+  // Render and upload to Supabase Storage 'renders' bucket
+  const saveToGallery = async () => {
+    const node = stripRef.current;
+    if (!node) return;
+    try {
+      const html2canvas = await (async ()=>{
+        if (typeof window !== 'undefined' && window.html2canvas) return window.html2canvas;
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+        s.async = true;
+        const p = new Promise((resolve, reject)=>{ s.onload=()=>resolve(window.html2canvas); s.onerror=reject; });
+        document.head.appendChild(s);
+        return p;
+      })();
+      const scaleFactor = Math.max(3, window.devicePixelRatio || 1);
+      const canvas = await html2canvas(node, {
+        backgroundColor: window.getComputedStyle(node).backgroundColor || '#ffffff',
+        useCORS: true,
+        allowTaint: false,
+        scale: scaleFactor,
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+      });
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Render failed');
+      const session = await getSession();
+      console.log('SaveToGallery session:', session);
+      if (!session?.user?.id) {
+        alert('Silakan login untuk menyimpan ke galeri. (Tidak ada sesi pengguna)');
+        return;
+      }
+      const url = await uploadRender(session.user.id, blob, { extension: 'png', folder: `layout-${layoutId}` });
+      // Public bucket: uploadRender returns a public URL; copy to clipboard for convenience
+      if (typeof navigator !== 'undefined' && navigator.clipboard && url) {
+        try { await navigator.clipboard.writeText(url); } catch {}
+      }
+      alert('Tersimpan ke galeri! Link disalin ke clipboard.')
+      console.log('Public URL:', url)
+    } catch (err) {
+      console.error('Save to gallery failed:', err);
+      alert(`Gagal menyimpan ke galeri. ${err?.message || 'Pastikan sudah login.'}`);
+    }
+  }
+
   const headerItems = [
     { label: 'Home' },
     { label: 'How It Works?' },
@@ -477,7 +523,7 @@ export default function Editor() {
               <span className="icon" />
               <span>Ambil foto lagi</span>
             </button>
-            <button className="action">
+            <button className="action" onClick={saveToGallery}>
               <span className="icon" />
               <span>Simpan ke galeri</span>
             </button>

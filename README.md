@@ -1,16 +1,26 @@
-# React + Vite
+# PixBooth
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite app for a digital photobooth with Supabase integration.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- `bun run dev` — start the app locally
+- `bun run build` — production build
+- `bun run preview` — preview the build
+- `bun run server` — optional Elysia server for signed URLs
 
-## React Compiler
+## Deploy to Vercel
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Push code to GitHub (or connect this repo in Vercel).
+2. In Vercel Project Settings → Environment Variables, add:
+	- `VITE_SUPABASE_URL` = `https://ksrugselthfxjjibtgnp.supabase.co`
+	- `VITE_SUPABASE_ANON_KEY` = `<your anon key>`
+	- Optional: `VITE_SERVER_URL` = your signed-URL server (if used)
+3. Vercel config:
+	- Build Command: `bun run build`
+	- Output Directory: `dist`
+4. Deploy.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Notes
+- The `ImageStore` bucket is public for reads. Authenticated users can upload to `ImageStore/<uid>/...` per Storage RLS policies.
+- If you switch the bucket to private reads, use the Elysia server (`/signed-url`) and set `VITE_SERVER_URL`.
