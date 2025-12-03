@@ -12,11 +12,21 @@ function injectPhotoboothStylesOnce() {
 function Photobooth(hostEl) {
   injectPhotoboothStylesOnce();
   if (hostEl && hostEl.length) hostEl = hostEl[0];
-  const mediaDevices = navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? navigator.mediaDevices : null;
-  const legacyUM = (navigator.getUserMedia||navigator.webkitGetUserMedia||navigator.mozGetUserMedia||navigator.oGetUserMedia||navigator.msieGetUserMedia||false);
+  // Cross-browser getUserMedia: prefer modern promise API, fallback to legacy callbacks
+  const legacyGetUM = (navigator.getUserMedia||navigator.webkitGetUserMedia||navigator.mozGetUserMedia||navigator.oGetUserMedia||navigator.msieGetUserMedia||false);
+  const getUserMedia = (constraints)=>{
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      return navigator.mediaDevices.getUserMedia(constraints);
+    }
+    return new Promise((resolve, reject)=>{
+      if (!legacyGetUM) return reject(new Error('getUserMedia not supported'));
+      try { legacyGetUM.call(navigator, constraints, resolve, reject); }
+      catch(e){ reject(e); }
+    });
+  };
   this.onImage = function(){};
   this.forceHSB = false;
-  this.isSupported = !!(mediaDevices || legacyUM);
+  this.isSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || !!legacyGetUM;
 
   let hue=0, sat=0, bri=0, isOverlay=false, paused=false, stream=null, self=this;
   let width = hostEl.offsetWidth || 640, height = hostEl.offsetHeight || 480;
@@ -36,22 +46,16 @@ function Photobooth(hostEl) {
   this.resume = ()=>{ if (paused===true){ paused=false; start(); } };
   this.destroy = ()=>{ this.pause(); hostEl && wrapper && hostEl.removeChild(wrapper); };
   this.resize = (w,h)=>{ 
-    // Enforce 4:3 aspect for internal capture to avoid stretched outputs
+    // Size internal canvases to match visual wrapper to avoid any stretch/border mismatch
     const min = 160;
     const targetW = Math.max(min, w||0);
     const targetH = Math.max(min, h||0);
-    // Internal canvas will be 4:3 based on width
-    const internalW = targetW;
-    const internalH = Math.round(internalW * 3 / 4);
-    width = internalW; height = internalH;
-    // Crop bounds follow internal canvas
+    width = targetW; height = targetH;
     crop.setMax(width,height);
-    // Visual wrapper can keep the requested size
     wrapper.style.width = targetW + 'px';
     wrapper.style.height = targetH + 'px';
-    // size our two internal canvases (capture area)
-    canvasRaw.width = internalW; canvasRaw.height = internalH; 
-    videoCanvas.width = internalW; videoCanvas.height = internalH; };
+    canvasRaw.width = width; canvasRaw.height = height; 
+    videoCanvas.width = width; videoCanvas.height = height; };
 
   // DOM helpers
   const q = (cls)=> wrapper.getElementsByClassName(cls)[0];
@@ -147,21 +151,13 @@ function Photobooth(hostEl) {
   this.getCropActive = ()=>{ try { return crop.isActive(); } catch { return false; } };
 
   // Video init and render loop
-  const supported = !!getUM;
+  const supported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || !!legacyGetUM;
   const notSupported = q('notSupported');
 
   function start(){
     if (!supported) { notSupported.style.display = 'block'; return; }
     noWebcam.style.display = 'none';
-    if (mediaDevices) {
-      mediaDevices.getUserMedia({ video: true })
-        .then(onStream)
-        .catch(onFail);
-    } else if (legacyUM) {
-      legacyUM.call(navigator,{video:true}, onStream, onFail);
-    } else {
-      onFail();
-    }
+    getUserMedia({ video: true }).then(onStream).catch(onFail);
   }
   function onStream(s){
     stream = s;
@@ -242,10 +238,14 @@ function Photobooth(hostEl) {
   // init sizes and attach
   this.resize(width,height);
   hostEl && hostEl.appendChild(wrapper);
-  // Do not auto-start: require user gesture to begin camera
-  // Expose start() so the app can trigger it on a user action
+  // Auto-start camera stream on initialization (browsers may still prompt for permission)
   this.start = start;
-  if (!supported) { notSupported.style.display='block'; }
+  if (!supported) { 
+    notSupported.style.display='block'; 
+  } else {
+    // Attempt to start immediately; if permission is required, browser will show prompt.
+    try { start(); } catch(e) { /* fallback: user can call instance.start() manually */ }
+  }
 }
 
 export default Photobooth;
