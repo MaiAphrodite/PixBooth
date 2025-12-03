@@ -1,0 +1,6 @@
+/* Minimal base styles; app theme lives in App.css */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body { margin: 0; min-width: 320px; }
+img, svg { display: block; max-width: 100%; }
+a { text-decoration: none; }
