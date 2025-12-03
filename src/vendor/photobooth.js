@@ -233,7 +233,10 @@ function Photobooth(hostEl) {
   // init sizes and attach
   this.resize(width,height);
   hostEl && hostEl.appendChild(wrapper);
-  if (supported) { start(); } else { notSupported.style.display='block'; }
+  // Do not auto-start: require user gesture to begin camera
+  // Expose start() so the app can trigger it on a user action
+  this.start = start;
+  if (!supported) { notSupported.style.display='block'; }
 }
 
 export default Photobooth;

@@ -15,6 +15,7 @@ export default function Booth() {
   const pendingShotRef = useRef(false);
 
   const [ready, setReady] = useState(false);
+  const [started, setStarted] = useState(false);
   const [error, setError] = useState('');
   const [currentPose, setCurrentPose] = useState(0);
   const currentPoseRef = useRef(0);
@@ -98,6 +99,13 @@ export default function Booth() {
 
   const startCountdownAndCapture = (seconds = 3) => {
     if (!ready) return;
+    // Ensure camera is started via a user gesture before capturing
+    try {
+      if (!started) {
+        pbRef.current?.start?.();
+        setStarted(true);
+      }
+    } catch {}
     setComposedUrl('');
     pendingShotRef.current = true;
     setCountdown(seconds);
@@ -228,6 +236,9 @@ export default function Booth() {
             <button className="primary" disabled={!ready || !!countdown} onClick={() => startCountdownAndCapture(3)}>
               {shots[currentPose] ? 'Retake' : 'Capture'}
             </button>
+          )}
+          {!started && (
+            <div className="booth-tip">Klik "Capture" untuk memulai kamera.</div>
           )}
           {!allDone && currentPose > 0 && (
             <button onClick={() => setCurrentPose(p => Math.max(0, p - 1))}>Previous</button>
