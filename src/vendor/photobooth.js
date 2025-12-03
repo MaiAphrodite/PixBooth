@@ -12,10 +12,11 @@ function injectPhotoboothStylesOnce() {
 function Photobooth(hostEl) {
   injectPhotoboothStylesOnce();
   if (hostEl && hostEl.length) hostEl = hostEl[0];
-  const getUM = (navigator.getUserMedia||navigator.webkitGetUserMedia||navigator.mozGetUserMedia||navigator.oGetUserMedia||navigator.msieGetUserMedia||false);
+  const mediaDevices = navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? navigator.mediaDevices : null;
+  const legacyUM = (navigator.getUserMedia||navigator.webkitGetUserMedia||navigator.mozGetUserMedia||navigator.oGetUserMedia||navigator.msieGetUserMedia||false);
   this.onImage = function(){};
   this.forceHSB = false;
-  this.isSupported = !!getUM;
+  this.isSupported = !!(mediaDevices || legacyUM);
 
   let hue=0, sat=0, bri=0, isOverlay=false, paused=false, stream=null, self=this;
   let width = hostEl.offsetWidth || 640, height = hostEl.offsetHeight || 480;
@@ -152,7 +153,15 @@ function Photobooth(hostEl) {
   function start(){
     if (!supported) { notSupported.style.display = 'block'; return; }
     noWebcam.style.display = 'none';
-    getUM.call(navigator,{video:true}, onStream, onFail);
+    if (mediaDevices) {
+      mediaDevices.getUserMedia({ video: true })
+        .then(onStream)
+        .catch(onFail);
+    } else if (legacyUM) {
+      legacyUM.call(navigator,{video:true}, onStream, onFail);
+    } else {
+      onFail();
+    }
   }
   function onStream(s){
     stream = s;
